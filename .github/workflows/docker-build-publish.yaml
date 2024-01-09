@@ -1,0 +1,117 @@
+name: Build and publish Docker images
+
+on:
+  workflow_call:
+    secrets:
+      MBZUAI_TOKEN:
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_REPOSITORY: ${{ github.repository }}
+
+jobs:
+  build_and_publish_base:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Read VERSION file
+        id: read_version
+        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.MBZUAI_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}/base
+          tags: >
+            type=sha,enable=true,priority=100,prefix=${{
+            steps.read_version.outputs.version }}-,suffix=,format=short
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/Dockerfile.base
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build_and_publish_controller:
+    runs-on: ubuntu-latest
+    needs: build_and_publish_base
+    env:
+      BASE_IMAGE_TAG: ${{ needs.build_and_publish_base.outputs.image-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Read VERSION file
+        id: read_version
+        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.MBZUAI_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}/controller
+          tags: >
+            type=sha,enable=true,priority=100,prefix=${{
+            steps.read_version.outputs.version }}-,suffix=,format=short
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/Dockerfile.controller
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{env.BASE_IMAGE_TAG}}
+
+  build_and_publish_service:
+    runs-on: ubuntu-latest
+    needs: build_and_publish_base
+    env:
+      BASE_IMAGE_TAG: ${{ needs.build_and_publish_base.outputs.image-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Read VERSION file
+        id: read_version
+        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.MBZUAI_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}/service
+          tags: >
+            type=sha,enable=true,priority=100,prefix=${{
+            steps.read_version.outputs.version }}-,suffix=,format=short
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/Dockerfile.service
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{env.BASE_IMAGE_TAG}}

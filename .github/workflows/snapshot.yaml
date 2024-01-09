@@ -1,0 +1,35 @@
+name: Snapshot Build
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+on:
+  push:
+    branches:
+      - develop
+      - pipeline
+      - ci*
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+jobs:
+  python:
+    uses: ./.github/workflows/python-build-tests.yaml
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.MBZUAI_TOKEN }}
+      REGISTRY_ADDRESS: ${{ secrets.REGISTRY_ADDRESS }}
+  
+  docker:
+    needs: python
+    uses: ./.github/workflows/docker-build-publish.yaml
+#    with:
+#      CONTEXT: .
+#      DOCKER_FILE: ./docker/Dockerfile.controller
+    secrets:
+#      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+#      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      MBZUAI_TOKEN: ${{ secrets.MBZUAI_TOKEN }}
+    
